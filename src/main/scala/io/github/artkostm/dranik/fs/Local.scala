@@ -1,11 +1,11 @@
 package io.github.artkostm.dranik.fs
 
 import io.github.artkostm.dranik.utils.logger
-
-import java.io.{File, FileInputStream, FileOutputStream, InputStream, OutputStream}
 import org.slf4j.LoggerFactory
-import zio.blocking.{Blocking, blocking}
+import zio.blocking.{blocking, Blocking}
 import zio.{Managed, Task, UIO}
+
+import java.io._
 
 protected[fs] class Local(rootDir: String) extends FS.Service {
   private implicit val LOGGER = LoggerFactory.getLogger(getClass)
@@ -21,8 +21,8 @@ protected[fs] class Local(rootDir: String) extends FS.Service {
 
   override def read(fileName: String): Managed[Throwable, (Long, InputStream)] =
     for {
-      _     <- logger.info(s"Streaming data from the file $fileName...").toManaged_
-      file = new File(rootDir, fileName)
+      _      <- logger.info(s"Streaming data from the file $fileName...").toManaged_
+      file   = new File(rootDir, fileName)
       stream <- Local.getFileReader(file)
     } yield (stream.available(), stream)
 }

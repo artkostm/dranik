@@ -1,12 +1,11 @@
 package io.github.artkostm.dranik.client
 
-import com.github.plokhotnyuk.jsoniter_scala.macros._
 import com.github.plokhotnyuk.jsoniter_scala.core._
 import io.github.artkostm.dranik.client.OnlinerClient.{ApartmentsResponse, PkApiRequest}
-import zio.{Has, Schedule, Task}
 import sttp.client3._
 import zio.clock.Clock
 import zio.duration.Duration
+import zio.{Has, Schedule, Task}
 
 class SttpOnlinerClient(config: ClientConfig)(backend: OnlinerBackend) extends OnlinerClient.Service {
 
