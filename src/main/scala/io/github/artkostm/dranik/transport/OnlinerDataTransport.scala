@@ -2,31 +2,23 @@ package io.github.artkostm.dranik.transport
 
 import com.github.plokhotnyuk.jsoniter_scala.core._
 import io.github.artkostm.dranik.client.OnlinerClient
-import io.github.artkostm.dranik.client.OnlinerClient.{
-  ApartmentsResponse,
-  LatLngRequest,
-  PkApiRequest
-}
+import io.github.artkostm.dranik.client.OnlinerClient.{ApartmentsResponse, LatLngRequest, PkApiRequest}
 import io.github.artkostm.dranik.fs.FS
 import zio.Task
 
 import java.text.{DecimalFormat, DecimalFormatSymbols}
+import java.time.{Clock, LocalDateTime}
 import java.util.UUID
 
 protected[transport] class OnlinerDataTransport(fs: FS.Service, client: OnlinerClient.Service)
   extends DataTransport.Service
   with MapCrawler
   with Pagination {
-  private val decimalFormatSymbols = {
-    val x = new DecimalFormatSymbols()
-    x.setDecimalSeparator('_')
-    x.setGroupingSeparator('_')
-    x
-  }
+  import OnlinerDataTransport._
 
-  private val df = new DecimalFormat("#,###.00", decimalFormatSymbols)
-
-  override def downloadApartments(): Task[Unit] =
+  override def downloadApartments(): Task[Unit] = {
+    val today = LocalDateTime.now(Clock.systemUTC())
+    val p     = partition(today, UUID.randomUUID().toString)
     sliding {
       case ((startLat, startLng), (endLat, endLng)) =>
         apartmentsPage { page =>
@@ -39,12 +31,25 @@ protected[transport] class OnlinerDataTransport(fs: FS.Service, client: OnlinerC
             .tap { response =>
               if (response.apartments.nonEmpty)
                 fs.write(
-                  s"p${page}_${df.format(startLat)}-${df.format(startLng)}__${df
-                    .format(endLat)}-${df.format(endLng)}_${UUID.randomUUID()}.json",
+                  s"$p/${decimalFormat.format(startLat)}-${decimalFormat.format(startLng)}__${decimalFormat
+                    .format(endLat)}-${decimalFormat.format(endLng)}_p${page}_${UUID.randomUUID()}.json",
                   writeToArray[ApartmentsResponse](response)
                 )
               else Task.unit
             }
         }
     }
+  }
+}
+
+object OnlinerDataTransport {
+  protected val decimalFormat: DecimalFormat = {
+    val decimalFormatSymbols = new DecimalFormatSymbols()
+    decimalFormatSymbols.setDecimalSeparator('_')
+    decimalFormatSymbols.setGroupingSeparator('_')
+    new DecimalFormat("#,###.00", decimalFormatSymbols)
+  }
+
+  def partition(ldt: LocalDateTime, id: String): String =
+    f"year=${ldt.getYear}/month=${ldt.getMonth.getValue}%02d/day=${ldt.getDayOfMonth}%02d/hour=${ldt.getHour}%02d/etlid=$id"
 }

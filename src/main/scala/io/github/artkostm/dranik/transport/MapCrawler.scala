@@ -19,10 +19,11 @@ object MapCrawler {
   type Rectangle = (LatLng, LatLng)
   type Matrix    = Seq[Seq[Rectangle]]
 
+  // todo: add to config
   def matrix(start: LatLng,
              end: LatLng,
              minStep: LatLng =
-               (BigDecimal("0.024050511222313276"), BigDecimal("0.06497383117675426"))): Matrix = {
+               (BigDecimal("0.01"), BigDecimal("0.04"))): Matrix = {
     val (slat, slng)       = start
     val (elat, elng)       = end
     val (latStep, lngStep) = minStep
