@@ -1,14 +1,12 @@
 package io.github.artkostm.dranik.fs
 
-import io.github.artkostm.dranik.utils.logger
-import org.slf4j.LoggerFactory
-import zio.blocking.{blocking, Blocking}
+import zio.blocking.{Blocking, blocking}
+import zio.logging.Logger
 import zio.{Managed, Task, UIO}
 
 import java.io._
 
-protected[fs] class Local(rootDir: String) extends FS.Service {
-  private implicit val LOGGER = LoggerFactory.getLogger(getClass)
+protected[fs] class Local(rootDir: String, logger: Logger[String]) extends FS.Service {
 
   override def writeStream(fileName: String)(resource: OutputStream => Task[Any]): Task[String] =
     for {

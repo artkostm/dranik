@@ -1,16 +1,14 @@
 package io.github.artkostm.dranik.fs
 
 import com.microsoft.azure.storage.blob.{CloudBlobContainer, CloudBlockBlob}
-import io.github.artkostm.dranik.utils.logger
-import org.slf4j.LoggerFactory
-import zio.blocking.{blocking, Blocking}
+import zio.blocking.{Blocking, blocking}
+import zio.logging.Logger
 import zio.{Managed, Task, UIO}
 
 import java.io.{InputStream, OutputStream}
 
-protected[fs] class AzureBlob(blockContainer: CloudBlobContainer, blobRoot: String)
+protected[fs] class AzureBlob(blockContainer: CloudBlobContainer, blobRoot: String, logger: Logger[String])
   extends FS.Service {
-  private implicit val LOGGER = LoggerFactory.getLogger(getClass)
 
   override def writeStream(
     blobName: String

@@ -5,6 +5,7 @@ import com.microsoft.azure.storage.blob.CloudBlobContainer
 import io.github.artkostm.dranik.Cli.TransportAppConfig
 import zio.stream.{Sink, Stream}
 import zio._
+import zio.logging.{Logger, Logging}
 
 import java.io.{InputStream, OutputStream}
 import java.nio.ByteBuffer
@@ -31,21 +32,23 @@ package object fs {
         }.orDie
       }
 
-    def azure: URLayer[Has[TransportAppConfig] with Has[CloudBlobContainer], FS] =
-      ZLayer.fromServices[TransportAppConfig, CloudBlobContainer, FS.Service] {
-        (config, container) =>
+    def azure: URLayer[Logging with Has[TransportAppConfig] with Has[CloudBlobContainer], FS] =
+      ZLayer.fromServices[Logger[String], TransportAppConfig, CloudBlobContainer, FS.Service] {
+        (logger, config, container) =>
           new AzureBlob(
             container,
-            config.blob.getOrElse(throw new RuntimeException("Please specify root blob"))
+            config.blob.getOrElse(throw new RuntimeException("Please specify root blob")),
+            logger
           )
       }
 
-    def local: URLayer[Has[TransportAppConfig], FS] =
-      ZLayer.fromService[TransportAppConfig, FS.Service](
-        config =>
+    def local: URLayer[Logging with Has[TransportAppConfig], FS] =
+      ZLayer.fromServices[Logger[String], TransportAppConfig, FS.Service](
+        (logger, config) =>
           new Local(
             config.localDir
-              .getOrElse(throw new RuntimeException("Please specify local root dir for debug"))
+              .getOrElse(throw new RuntimeException("Please specify local root dir for debug")),
+            logger
         )
       )
 
