@@ -6,6 +6,7 @@ scalaVersion := "2.13.4"
 
 libraryDependencies ++= Seq(
   "dev.zio"                               %% "zio"                           % "1.0.3",
+  "dev.zio"                               %% "zio-logging-slf4j"             % "0.5.4",
   "com.softwaremill.sttp.client3"         %% "async-http-client-backend-zio" % "3.0.0-RC13",
   "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-core"           % "2.6.2",
   "com.github.plokhotnyuk.jsoniter-scala" %% "jsoniter-scala-macros"         % "2.6.2" % Provided,
