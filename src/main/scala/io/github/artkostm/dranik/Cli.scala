@@ -3,6 +3,8 @@ package io.github.artkostm.dranik
 import scopt.OParser
 import zio.Task
 
+import java.util.UUID
+
 object Cli {
   final def parse(args: List[String]): Task[TransportAppConfig] = {
     val builder = OParser.builder[TransportAppConfig]
@@ -37,6 +39,11 @@ object Cli {
             .hidden()
             .action((x, c) => c.copy(url = x))
             .text("Onliner REST API URL"),
+          opt[String]("corr-id")
+            .abbr("i")
+            .hidden()
+            .action((x, c) => c.copy(correlationId = Some(UUID.fromString(x))))
+            .text("Correlation ID"),
           checkConfig(
             c =>
               if (c.debug && c.localDir.isDefined) success
@@ -64,5 +71,6 @@ object Cli {
     storageAccount: Option[Secret] = None,
     storageAccountKey: Option[Secret] = None,
     localDir: Option[String] = None,
+    correlationId: Option[UUID] = Some(UUID.randomUUID()),
   )
 }

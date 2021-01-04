@@ -6,6 +6,9 @@ import io.github.artkostm.dranik.fs.FS
 import io.github.artkostm.dranik.transport.DataTransport
 import sttp.client3.asynchttpclient.zio.AsyncHttpClientZioBackend
 import zio._
+import zio.logging.LogAnnotation.CorrelationId
+import zio.logging._
+import zio.logging.slf4j._
 
 object Main extends App {
   override def run(args: List[String]): URIO[ZEnv, ExitCode] =
@@ -13,18 +16,27 @@ object Main extends App {
       .parse(args)
       .flatMap { config =>
         dependencies(config).build.use { env =>
-          transport.downloadApartments().provide(env)
+          log
+            .locally(CorrelationId(config.correlationId)) {
+              transport
+                .downloadApartments()
+                .tapError(error => log.throwable("Program finished with an error: ", error))
+            }
+            .provide(env)
         }
       }
       .exitCode
 
-  def dependencies(config: TransportAppConfig): ZLayer[Any, Nothing, DataTransport] = {
+  def dependencies(config: TransportAppConfig): ZLayer[Any, Nothing, DataTransport with Logging] = {
     val appConfig = ZLayer.succeed[TransportAppConfig](config)
+    val logger = Slf4jLogger.make { (context, message) =>
+      "[correlation-id = %s] %s".format(CorrelationId.render(context.get(CorrelationId)), message)
+    }
     val fs =
-      if (config.debug) appConfig >>> FS.local
+      if (config.debug) (appConfig ++ logger) >>> FS.local
       else {
         val container = appConfig >>> FS.azureBlobContainer
-        (appConfig ++ container) >>> FS.azure
+        (appConfig ++ container ++ logger) >>> FS.azure
       }
 
     val clientConfig = ZLayer.succeed(ClientConfig(config.url))
@@ -32,6 +44,6 @@ object Main extends App {
       ZLayer.fromManaged(AsyncHttpClientZioBackend.managed()).orDie
     val client = (clientBackend ++ clientConfig) >>> OnlinerClient.live
 
-    (client ++ fs) >>> DataTransport.live
+    (client ++ fs) >>> DataTransport.live ++ logger
   }
 }
