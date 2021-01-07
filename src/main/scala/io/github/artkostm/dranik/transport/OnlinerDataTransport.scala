@@ -1,6 +1,7 @@
 package io.github.artkostm.dranik.transport
 
 import com.github.plokhotnyuk.jsoniter_scala.core._
+import io.github.artkostm.dranik.ApplicationConfig.TransportConfig
 import io.github.artkostm.dranik.client.OnlinerClient
 import io.github.artkostm.dranik.client.OnlinerClient.{ApartmentsResponse, LatLngRequest, PkApiRequest}
 import io.github.artkostm.dranik.fs.FS
@@ -10,16 +11,18 @@ import java.text.{DecimalFormat, DecimalFormatSymbols}
 import java.time.{Clock, LocalDateTime}
 import java.util.UUID
 
-protected[transport] class OnlinerDataTransport(fs: FS.Service, client: OnlinerClient.Service)
+protected[transport] class OnlinerDataTransport(fs: FS.Service, client: OnlinerClient.Service, config: TransportConfig)
   extends DataTransport.Service
-  with MapCrawler
+  with Windowing
   with Pagination {
   import OnlinerDataTransport._
 
   override def downloadApartments(): Task[Unit] = {
     val today = LocalDateTime.now(Clock.systemUTC())
     val p     = partition(today, UUID.randomUUID().toString)
-    sliding {
+    val frame = ((config.leftBoundLatitude, config.leftBoundLongitude), (config.rightBoundLatitude, config.rightBoundLongitude))
+    val steps = (config.latitudeStep, config.longitudeStep)
+    sliding(frame, steps) {
       case ((startLat, startLng), (endLat, endLng)) =>
         apartmentsPage { page =>
           client

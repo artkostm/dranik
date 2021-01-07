@@ -1,5 +1,6 @@
 package io.github.artkostm.dranik
 
+import io.github.artkostm.dranik.ApplicationConfig.TransportConfig
 import io.github.artkostm.dranik.client.OnlinerClient
 import io.github.artkostm.dranik.fs.FS
 import zio.{Has, Task, ZIO, ZLayer}
@@ -12,9 +13,9 @@ package object transport {
 
   object DataTransport {
 
-    val live = ZLayer.fromServices[OnlinerClient.Service, FS.Service, DataTransport.Service] {
-      (client, fs) =>
-        new OnlinerDataTransport(fs, client)
+    val live = ZLayer.fromServices[OnlinerClient.Service, FS.Service, TransportConfig, DataTransport.Service] {
+      (client, fs, config) =>
+        new OnlinerDataTransport(fs, client, config)
     }
 
     trait Service {
