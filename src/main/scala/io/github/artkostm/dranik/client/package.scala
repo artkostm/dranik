@@ -14,18 +14,19 @@ package object client {
   type OnlinerClient  = Has[OnlinerClient.Service]
   type OnlinerBackend = SttpBackend[Task, ZioStreams with WebSockets]
 
+  sealed trait Auth
+  final case class BasicAuth(user: String, password: String) extends Auth
+
   final case class RetryConfig(times: Int, every: Duration)
 
-  final case class ClientConfig(url: String,
-                                auth: Option[Any] = None,
-                                retry: RetryConfig = RetryConfig(0, 0 seconds))
+  final case class ClientConfig(url: String, auth: Option[Auth] = None, retry: RetryConfig)
 
   object OnlinerClient {
 
-    lazy val live = ZLayer.fromServices[OnlinerBackend, ClientConfig, OnlinerClient.Service] {
-      (backend, config) =>
-        new SttpOnlinerClient(config)(backend)
-    }
+    lazy val live: ZLayer[Has[OnlinerBackend] with Has[ClientConfig], Nothing, OnlinerClient] =
+      ZLayer.fromServices[OnlinerBackend, ClientConfig, OnlinerClient.Service] {
+        (backend, config) => new SttpOnlinerClient(config)(backend)
+      }
 
     trait Service {
       def getApartments(request: PkApiRequest): Task[ApartmentsResponse]

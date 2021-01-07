@@ -2,10 +2,9 @@ package io.github.artkostm.dranik
 
 import com.microsoft.azure.storage.CloudStorageAccount
 import com.microsoft.azure.storage.blob.CloudBlobContainer
-import io.github.artkostm.dranik.Cli.TransportAppConfig
-import zio.stream.{Sink, Stream}
 import zio._
 import zio.logging.{Logger, Logging}
+import zio.stream.{Sink, Stream}
 
 import java.io.{InputStream, OutputStream}
 import java.nio.ByteBuffer
@@ -15,41 +14,61 @@ package object fs {
 
   object FS {
 
-    def azureBlobContainer: ZLayer[Has[TransportAppConfig], Nothing, Has[CloudBlobContainer]] =
-      ZLayer.fromServiceM[TransportAppConfig, Any, Nothing, CloudBlobContainer] { config =>
-        Task {
-          val credentials = config.storageAccount
-            .zip(config.storageAccountKey)
-            .getOrElse(throw new RuntimeException("Cannot connect to ADLS"))
-          val storageAccount = CloudStorageAccount.parse(
-            s"DefaultEndpointsProtocol=https;AccountName=${credentials._1.value};AccountKey=${credentials._2.value}"
-          )
-          val blobClient = storageAccount.createCloudBlobClient()
-          blobClient.getContainerReference(
-            config.container
-              .getOrElse(throw new RuntimeException("Please specify the Storage container name"))
-          )
-        }.orDie
+    def azureBlobContainer: ZLayer[Has[ApplicationConfig], Nothing, Has[CloudBlobContainer]] =
+      ZLayer.fromServiceM[ApplicationConfig, Any, Nothing, CloudBlobContainer] { config =>
+        blobContainer(config).orDie
       }
 
-    def azure: URLayer[Logging with Has[TransportAppConfig] with Has[CloudBlobContainer], FS] =
-      ZLayer.fromServices[Logger[String], TransportAppConfig, CloudBlobContainer, FS.Service] {
-        (logger, config, container) =>
-          new AzureBlob(
-            container,
-            config.blob.getOrElse(throw new RuntimeException("Please specify root blob")),
-            logger
-          )
-      }
-
-    def local: URLayer[Logging with Has[TransportAppConfig], FS] =
-      ZLayer.fromServices[Logger[String], TransportAppConfig, FS.Service](
-        (logger, config) =>
-          new Local(
-            config.localDir
-              .getOrElse(throw new RuntimeException("Please specify local root dir for debug")),
-            logger
+    private def blobContainer(config: ApplicationConfig): Task[CloudBlobContainer] =
+      Task {
+        val credentials = config.storageAccount
+          .zip(config.storageAccountKey)
+          .getOrElse(throw new RuntimeException("Cannot connect to ADLS"))
+        val storageAccount = CloudStorageAccount.parse(
+          s"DefaultEndpointsProtocol=https;AccountName=${credentials._1.value};AccountKey=${credentials._2.value}"
         )
+        val blobClient = storageAccount.createCloudBlobClient()
+        blobClient.getContainerReference(
+          config.container
+            .getOrElse(throw new RuntimeException("Please specify the Storage container name"))
+        )
+      }
+
+    def azure: URLayer[Logging with Has[ApplicationConfig] with Has[CloudBlobContainer], FS] =
+      ZLayer.fromServices[Logger[String], ApplicationConfig, CloudBlobContainer, FS.Service] {
+        (logger, config, container) =>
+          azureFs(logger, config, container)
+      }
+
+    def local: URLayer[Logging with Has[ApplicationConfig], FS] =
+      ZLayer.fromServices[Logger[String], ApplicationConfig, FS.Service](
+        (logger, config) => localFs(logger, config)
+      )
+
+    def live: URLayer[Logging with Has[ApplicationConfig], FS] =
+      ZLayer.fromServicesM[Logger[String], ApplicationConfig, Any, Nothing, FS.Service] {
+        (logger, config) =>
+          if (config.debug) ZIO.succeed(localFs(logger, config))
+          else
+            blobContainer(config).orDie.map { container =>
+              azureFs(logger, config, container)
+            }
+      }
+
+    private def localFs(logger: Logger[String], config: ApplicationConfig): FS.Service =
+      new Local(
+        config.localDir
+          .getOrElse(throw new RuntimeException("Please specify local root dir for debug")),
+        logger
+      )
+
+    private def azureFs(logger: Logger[String],
+                        config: ApplicationConfig,
+                        container: CloudBlobContainer): FS.Service =
+      new AzureBlob(
+        container,
+        config.blob.getOrElse(throw new RuntimeException("Please specify root blob")),
+        logger
       )
 
     trait Service {
